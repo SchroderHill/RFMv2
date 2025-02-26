@@ -149,6 +149,8 @@
               <br>
               <input type="radio" id="ignore-${id}" name="action-${id}" value="ignore">
               <label for="ignore-${id}">Ignore</label>
+              <br>
+              <button type="button" onclick="updateWixCMS(${id}, '${priority}')">Submit</button>
             </form>
           `)
           .addTo(map);
