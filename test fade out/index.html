@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>INSAR Linc</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <!-- Mapbox CSS/JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.3/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.3/mapbox-gl.js"></script>
+  
+  <style>
+    /* Basic page setup */
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+
+    /* Button style for rotation */
+    #btn-spin {
+      font: bold 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+      background-color: #6c0344;
+      color: #e4e1e1;
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      z-index: 1;
+      border: none;
+      width: 200px;
+      margin-left: -100px;
+      display: block;
+      cursor: pointer;
+      padding: 10px 20px;
+      border-radius: 3px; 
+    }
+    #btn-spin:hover {
+      background-color: #640452;
+    }
+
+    /* Button style for Save Session */
+    #btn-save {
+      font: bold 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+      background-color: #6c0344;
+      color: #f9f9f9;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      z-index: 1;
+      border: none;
+      width: 150px;
+      transform: translateX(-50%);
+      cursor: pointer;
+      padding: 10px 20px;
+      border-radius: 3px;
+    }
+    #btn-save:hover {
+      background-color: #640452;
+    }
+
+    /* Toast styling (instead of native alert) */
+    .toast-message {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.4s ease-in-out;
+      z-index: 9999;
+    }
+    .toast-show {
+      opacity: 1;
+    }
+
+    /* Fade-out class for the popup content */
+    .fade-out {
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    /* Custom popup styling */
+    .mapboxgl-popup-content {
+      background-color: #333 !important; 
+      color: #fff !important;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .mapboxgl-popup-tip {
+      border-top-color: #333 !important;
+    }
+    .mapboxgl-popup-close-button {
+      color: #fff !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <!-- <button id="btn-spin">Pause rotation</button> -->
+  <button id="btn-save">Save Session</button>
+
+  <script>
+    // Function to display a custom toast message
+    function showToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast-message';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.add('toast-show');
+      });
+
+      setTimeout(() => {
+        toast.classList.remove('toast-show');
+        setTimeout(() => {
+          document.body.removeChild(toast);
+        }, 400);
+      }, 2000);
+    }
+
+    // Initialize Mapbox map
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic2Nocm9kZXItaGlsbCIsImEiOiJjbHpmdW5ibXUxY3I1MmtvbXU3c2t0aHhoIn0.D_W59ZKzQSJf7WF8Cfhm3w';
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/satellite-v9',
+      projection: 'globe',
+      zoom: 2,
+      center: [173.942053519644503, -41.399980118741027]
+    });
+    
+    map.on('style.load', () => {
+      map.setFog({});
+    });
+    
+    // Rotation configuration
+    const secondsPerRevolution = 1820;
+    const maxSpinZoom = 1;
+    const slowSpinZoom = 0;
+    
+    let userInteracting = false;
+    let spinEnabled = true;
+    
+    function spinGlobe() {
+      const zoom = map.getZoom();
+      if (spinEnabled && !userInteracting && zoom < maxSpinZoom) {
+        let distancePerSecond = 360 / secondsPerRevolution;
+        if (zoom > slowSpinZoom) {
+          const zoomDif = (maxSpinZoom - zoom) / (maxSpinZoom - slowSpinZoom);
+          distancePerSecond *= zoomDif;
+        }
+        const center = map.getCenter();
+        center.lng -= distancePerSecond;
+        map.easeTo({ center, duration: 1000, easing: (n) => n });
+      }
+    }
+    
+    // Pause spinning on interaction
+    map.on('mousedown', () => { userInteracting = true; });
+    map.on('mouseup', () => { userInteracting = false; spinGlobe(); });
+    map.on('dragend', () => { userInteracting = false; spinGlobe(); });
+    map.on('pitchend', () => { userInteracting = false; spinGlobe(); });
+    map.on('rotateend', () => { userInteracting = false; spinGlobe(); });
+    map.on('moveend', () => { spinGlobe(); });
+    
+  /*  document.getElementById('btn-spin').addEventListener('click', (e) => {
+      spinEnabled = !spinEnabled;
+      if (spinEnabled) {
+        spinGlobe();
+        e.target.innerHTML = 'Pause rotation';
+      } else {
+        map.stop();
+        e.target.innerHTML = 'Start rotation';
+      }
+    });
+    */
+    
+    // Save Session button event listener
+    document.getElementById('btn-save').addEventListener('click', () => {
+      // For demonstration, we just show a toast. You can expand this to
+      // gather current feature states and save to localStorage or a server.
+      showToast("Session saved");
+    });
+    
+    spinGlobe();
+    
+    // Load GeoJSON data with unique feature IDs
+    map.on('load', () => {
+      map.addSource('custom-points', {
+        'type': 'geojson',
+        'data': {
+          "type": "FeatureCollection",
+          "name": "points_geojson",
+          "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+          "features": [
+            { "type": "Feature", "id": 1, "properties": { "id": 1, "priority": "high" }, "geometry": { "type": "Point", "coordinates": [173.942053519644503, -41.399980118741027] } },
+            { "type": "Feature", "id": 2, "properties": { "id": 2, "priority": "low" }, "geometry": { "type": "Point", "coordinates": [173.933111922710339, -41.396353473959259] } },
+            { "type": "Feature", "id": 3, "properties": { "id": 3, "priority": "medium" }, "geometry": { "type": "Point", "coordinates": [173.940505894622817, -41.406735558831571] } },
+            { "type": "Feature", "id": 4, "properties": { "id": 4, "priority": "high" }, "geometry": { "type": "Point", "coordinates": [173.948870090229093, -41.400506509577561] } },
+            { "type": "Feature", "id": 5, "properties": { "id": 5, "priority": "high" }, "geometry": { "type": "Point", "coordinates": [173.935387682749081, -41.395522907452978] } }
+          ]
+        }
+      });
+      
+      // Add a layer with opacity and radius expressions based on feature state
+      map.addLayer({
+        'id': 'points-layer',
+        'type': 'circle',
+        'source': 'custom-points',
+        'paint': {
+          'circle-radius': [
+            'case',
+            ['boolean', ['feature-state', 'watched'], false],
+            ['coalesce', ['feature-state', 'pulse'], 6],
+            6
+          ],
+          'circle-color': [
+            'match',
+            ['get', 'priority'],
+            'high', '#FF0000',
+            'medium', '#FFA500',
+            'low', '#008000',
+            '#000000'
+          ],
+          'circle-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'archived'], false],
+            0.3,
+            1
+          ]
+        }
+      });
+      
+      // Interactivity: popups with radio buttons for "Watch" and "Archive"
+      map.on('click', 'points-layer', (e) => {
+        const coordinates = e.features[0].geometry.coordinates.slice();
+        const id = e.features[0].properties.id;
+        const priority = e.features[0].properties.priority;
+        
+        // Create a container for the popup content
+        const popupContent = document.createElement('div');
+        popupContent.innerHTML = `
+          <h3>Point ID: ${id}</h3>
+          <p>Priority: ${priority}</p>
+          <form>
+            <input type="radio" id="watch-${id}" name="action-${id}" value="watch">
+            <label for="watch-${id}">Watch</label>
+            <br>
+            <input type="radio" id="archive-${id}" name="action-${id}" value="archive">
+            <label for="archive-${id}">Archive</label>
+            <br>
+            <button type="button" id="submitBtn-${id}">Submit</button>
+          </form>
+        `;
+        
+        // Create the popup instance and set its content
+        const popup = new mapboxgl.Popup()
+          .setLngLat(coordinates)
+          .setDOMContent(popupContent)
+          .addTo(map);
+        
+        // Click event for the submit button
+        const submitButton = popupContent.querySelector(`#submitBtn-${id}`);
+        submitButton.addEventListener('click', () => {
+          const selectedRadio = popupContent.querySelector(`input[name="action-${id}"]:checked`);
+          if (!selectedRadio) {
+            showToast("Please select an action (Watch or Archive) before submitting.");
+            return;
+          }
+          const action = selectedRadio.value;
+          
+          if (action === "archive") {
+            // Mark point as archived (transparent)
+            map.setFeatureState(
+              { source: 'custom-points', id: id },
+              { archived: true, watched: false, pulse: 6 }
+            );
+          } else if (action === "watch") {
+            // Mark point as watched (full opacity) and start pulse animation
+            map.setFeatureState(
+              { source: 'custom-points', id: id },
+              { archived: false, watched: true, pulse: 6 }
+            );
+            let startTime = performance.now();
+            function animatePulse(timestamp) {
+              let elapsed = timestamp - startTime;
+              // Create a pulsing effect: radius oscillates between 6 and 8
+              let pulse = 6 + 2 * Math.abs(Math.sin(elapsed / 200));
+              map.setFeatureState({ source: 'custom-points', id: id }, { pulse: pulse });
+              if (elapsed < 2000) {  // Run the animation for 2 seconds
+                requestAnimationFrame(animatePulse);
+              } else {
+                // End animation; reset to default radius (6)
+                map.setFeatureState({ source: 'custom-points', id: id }, { pulse: 6 });
+              }
+            }
+            requestAnimationFrame(animatePulse);
+          }
+          
+          // Fade out popup and then remove it
+          popupContent.classList.add('fade-out');
+          setTimeout(() => {
+            popup.remove();
+          }, 500);
+          
+          // Show toast message
+          showToast("AOI added to RFM database");
+        });
+      });
+      
+      map.on('mouseenter', 'points-layer', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      
+      map.on('mouseleave', 'points-layer', () => {
+        map.getCanvas().style.cursor = '';
+      });
+    });
+  </script>
+</body>
+</html>
