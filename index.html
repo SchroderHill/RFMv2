@@ -107,12 +107,10 @@
     </button>
     <!-- Regional View Button with Satellite Icon -->
     <button id="btn-regional" class="small-button" title="Regional View">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="#f9f9f9">
-    <!-- Example satellite icon path (you can replace this with another icon's path data) -->
-    <path d="M21 16.95V7c0-.55-.45-1-1-1h-4.18c-.45 0-.67.54-.35.85l1.83 1.83c.2.2.2.51 0 .71l-1.24 1.24-2.12-2.12L12 9.83l.44 1.33-2.12 2.12-1.24-1.24c-.2-.2-.51-.2-.71 0L7 12.54c-.31.31-.85.09-.85-.35V7c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v10.95c0 .55.45 1 1 1h18c.55 0 1-.45 1-1z"/>
-  </svg>
-</button>
-
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="#f9f9f9">
+        <path d="M21 16.95V7c0-.55-.45-1-1-1h-4.18c-.45 0-.67.54-.35.85l1.83 1.83c.2.2.2.51 0 .71l-1.24 1.24-2.12-2.12L12 9.83l.44 1.33-2.12 2.12-1.24-1.24c-.2-.2-.51-.2-.71 0L7 12.54c-.31.31-.85.09-.85-.35V7c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v10.95c0 .55.45 1 1 1h18c.55 0 1-.45 1-1z"/>
+      </svg>
+    </button>
   </div>
 
   <script>
@@ -241,9 +239,60 @@
             <path fill="#f9f9f9" d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
           </svg>
         `;
+        
       }
     });
-    
+  // Add an Export CSV button to the top-right buttons container
+const exportButton = document.createElement('button');
+exportButton.id = 'btn-export';
+exportButton.className = 'small-button';
+exportButton.title = 'Export CSV';
+exportButton.innerHTML = `
+  <svg viewBox="0 0 24 24" width="20" height="20">
+    <path fill="#f9f9f9" d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h4.66v-4h3.84L12 2z"/>
+  </svg>
+`;
+document.querySelector('.top-right-buttons').appendChild(exportButton);
+
+// Export function to generate CSV and trigger download
+function exportToCSV() {
+  // Updated header includes a Date column
+  let csvContent = 'Point ID,Status,Longitude,Latitude,Notes,Date\n';
+  
+  customPointsData.features.forEach(feature => {
+    const id = feature.properties.id;
+    const coords = feature.geometry.coordinates;
+    // Retrieve dynamic state for each feature
+    const state = map.getFeatureState({ source: 'custom-points', id: id });
+    let status = 'None';
+    if (state.archived) {
+      status = 'Archived';
+    } else if (state.watched) {
+      status = 'Watched';
+    } else if (state.remediated) {
+      status = 'Remediated';
+    }
+    const notes = state.notes || '';
+    // Get the current date in ISO format
+    const now = new Date().toISOString();
+    // Build CSV row with separate Longitude, Latitude, and Date columns
+    csvContent += `${id},"${status}",${coords[0]},${coords[1]},"${notes}","${now}"\n`;
+  });
+  
+  // Create a Blob and trigger a download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'points_export.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// Attach event listener to the export button
+exportButton.addEventListener('click', exportToCSV);
+  
     spinGlobe();
     
     /********** Load GeoJSON Data & Add Layer **********/
@@ -278,6 +327,19 @@
             ['boolean', ['feature-state', 'archived'], false],
             0.3,
             1
+          ],
+          // Outline for remediated and watched points
+          'circle-stroke-color': [
+            'case',
+            ['boolean', ['feature-state', 'remediated'], false], '#00FF00',  // green border for remediated points
+            ['boolean', ['feature-state', 'watched'], false], '#FFFFFF',       // white border for watched points
+            'transparent'
+          ],
+          'circle-stroke-width': [
+            'case',
+            ['boolean', ['feature-state', 'remediated'], false], 2,
+            ['boolean', ['feature-state', 'watched'], false], 2,
+            0
           ]
         }
       });
@@ -301,7 +363,7 @@
               <path fill="#f9f9f9" d="M19,13H5V11H19V13Z" />
             </svg>
           `;
-          showToast("New point added. Click the point to set Watch/Archive.");
+          showToast("New point added. Click the point to set Watch/Archive/Remediated.");
         }
       });
       
@@ -313,16 +375,38 @@
         const id = e.features[0].properties.id;
         const priority = e.features[0].properties.priority;
         
+        // Retrieve current feature state for pre-population
+        const featureState = map.getFeatureState({ source: 'custom-points', id: id });
+        const isWatched = featureState.watched || false;
+        const isArchived = featureState.archived || false;
+        const isRemediated = featureState.remediated || false;
+        const notesValue = featureState.notes || '';
+        
         const popupContent = document.createElement('div');
         popupContent.innerHTML = `
           <h3>Point ID: ${id}</h3>
           <p>Priority: ${priority}</p>
           <form>
-            <input type="radio" id="watch-${id}" name="action-${id}" value="watch">
+            <input type="radio" id="watch-${id}" name="action-${id}" value="watch" ${isWatched ? 'checked' : ''}>
             <label for="watch-${id}">Watch</label>
             <br>
-            <input type="radio" id="archive-${id}" name="action-${id}" value="archive">
+            <input type="radio" id="archive-${id}" name="action-${id}" value="archive" ${isArchived ? 'checked' : ''}>
             <label for="archive-${id}">Archive</label>
+            <br>
+            <input type="radio" id="remediated-${id}" name="action-${id}" value="remediated" ${isRemediated ? 'checked' : ''}>
+            <label for="remediated-${id}">Remediated</label>
+            <br>
+            <label for="notes-${id}">Notes:</label>
+            <br>
+            <textarea id="notes-${id}" name="notes-${id}" rows="3" cols="30" placeholder="Enter your notes here...">${notesValue}</textarea>
+            <br>
+            <label for="photoUpload-${id}" style="cursor: pointer; display: inline-flex; align-items: center; margin-top: 5px;">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="#f9f9f9" d="M12 2C8.13 2 5 5.13 5 9c0 3.87 3.13 7 7 7s7-3.13 7-7c0-3.87-3.13-7-7-7zm0 12c-2.76 0-5-2.24-5-5 0-2.76 2.24-5 5-5 2.76 0 5 2.24 5 5 0 2.76-2.24 5-5 5zm-1-9h2v4h3l-4 4-4-4h3z"/>
+              </svg>
+              <span style="font-size: 12px; margin-left: 3px;">Upload Photo</span>
+            </label>
+            <input type="file" id="photoUpload-${id}" style="display: none;" accept="image/*">
             <br>
             <button type="button" id="submitBtn-${id}">Submit</button>
           </form>
@@ -337,20 +421,22 @@
         submitButton.addEventListener('click', () => {
           const selectedRadio = popupContent.querySelector(`input[name="action-${id}"]:checked`);
           if (!selectedRadio) {
-            showToast("Please select an action (Watch or Archive) before submitting.");
+            showToast("Please select an action (Watch, Archive, or Remediated) before submitting.");
             return;
           }
           const action = selectedRadio.value;
+          // Retrieve notes from the textarea
+          const notes = popupContent.querySelector(`#notes-${id}`).value;
           
           if (action === "archive") {
             map.setFeatureState(
               { source: 'custom-points', id: id },
-              { archived: true, watched: false, pulse: 6 }
+              { archived: true, watched: false, remediated: false, pulse: 6, notes: notes }
             );
           } else if (action === "watch") {
             map.setFeatureState(
               { source: 'custom-points', id: id },
-              { archived: false, watched: true, pulse: 6 }
+              { archived: false, watched: true, remediated: false, pulse: 6, notes: notes }
             );
             let startTime = performance.now();
             function animatePulse(timestamp) {
@@ -364,6 +450,11 @@
               }
             }
             requestAnimationFrame(animatePulse);
+          } else if (action === "remediated") {
+            map.setFeatureState(
+              { source: 'custom-points', id: id },
+              { archived: false, watched: false, remediated: true, pulse: 6, notes: notes }
+            );
           }
           
           popupContent.classList.add('fade-out');
@@ -374,12 +465,46 @@
         });
       });
       
-      map.on('mouseenter', 'points-layer', () => {
+      /********** Tooltip Functionality for Hovering Points **********/
+      // Create a tooltip element and add it to the document body
+      const tooltip = document.createElement('div');
+      tooltip.style.position = 'absolute';
+      tooltip.style.padding = '5px 10px';
+      tooltip.style.background = 'rgba(0, 0, 0, 0.7)';
+      tooltip.style.color = '#fff';
+      tooltip.style.borderRadius = '4px';
+      tooltip.style.fontSize = '12px';
+      tooltip.style.pointerEvents = 'none';
+      tooltip.style.zIndex = '10000';
+      tooltip.style.display = 'none';
+      document.body.appendChild(tooltip);
+      
+      map.on('mouseenter', 'points-layer', (e) => {
         map.getCanvas().style.cursor = 'pointer';
+        const feature = e.features[0];
+        const state = map.getFeatureState({ source: 'custom-points', id: feature.properties.id });
+        let statusText = 'Status: ';
+        if (state.archived) {
+          statusText += 'Archived';
+        } else if (state.watched) {
+          statusText += 'Watched';
+        } else if (state.remediated) {
+          statusText += 'Remediated';
+        } else {
+          statusText += 'None';
+        }
+        tooltip.innerHTML = statusText;
+        tooltip.style.display = 'block';
+      });
+      
+      map.on('mousemove', 'points-layer', (e) => {
+        tooltip.style.left = e.originalEvent.clientX + 10 + 'px';
+        tooltip.style.top = e.originalEvent.clientY + 10 + 'px';
       });
       
       map.on('mouseleave', 'points-layer', () => {
         map.getCanvas().style.cursor = '';
+        tooltip.style.display = 'none';
       });
     });
   </script>
