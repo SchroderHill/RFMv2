@@ -220,8 +220,17 @@
     
     /********** Save Session Button **********/
     document.getElementById('btn-save').addEventListener('click', () => {
+      // For each feature, update its properties with the current feature state
+      customPointsData.features.forEach(feature => {
+        const state = map.getFeatureState({ source: 'custom-points', id: feature.properties.id });
+        feature.properties.archived = state.archived || false;
+        feature.properties.watched = state.watched || false;
+        feature.properties.remediated = state.remediated || false;
+        feature.properties.notes = state.notes || "";
+      });
+      // Save the updated GeoJSON to localStorage
+      localStorage.setItem('customPointsData', JSON.stringify(customPointsData));
       showToast("Session saved");
-      // Extend functionality to persist session data as needed.
     });
     
     /********** Fly To Button Functionality **********/
@@ -389,6 +398,12 @@
     
     /********** Load GeoJSON Data & Add Layer **********/
     map.on('load', () => {
+      // Check for saved session data in localStorage
+      const savedData = localStorage.getItem('customPointsData');
+      if (savedData) {
+        customPointsData = JSON.parse(savedData);
+      }
+      
       map.addSource('custom-points', {
         type: 'geojson',
         data: customPointsData
@@ -433,6 +448,17 @@
             0
           ]
         }
+      });
+      
+      // After adding the layer, reapply any saved state for each feature
+      customPointsData.features.forEach(feature => {
+        map.setFeatureState({ source: 'custom-points', id: feature.properties.id }, {
+          archived: feature.properties.archived || false,
+          watched: feature.properties.watched || false,
+          remediated: feature.properties.remediated || false,
+          pulse: 6,
+          notes: feature.properties.notes || ""
+        });
       });
       
       /********** Enable Adding New Points **********/
