@@ -14,7 +14,7 @@
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
     
-    /* Container for top right buttons */
+    /* Top right button container */
     .top-right-buttons {
       position: absolute;
       top: 10px;
@@ -23,6 +23,22 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+    }
+    
+    /* Top center dropdown styling */
+    .top-center-dropdown {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+    }
+    
+    .top-center-dropdown select {
+      padding: 8px 12px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
     }
     
     /* Small round button styling */
@@ -85,6 +101,17 @@
 </head>
 <body>
   <div id="map"></div>
+  
+  <!-- Top Center Dropdown for "Mark all" -->
+  <div class="top-center-dropdown">
+    <select id="mark-all-select">
+      <option value="">Mark all as...</option>
+      <option value="watch">Watch</option>
+      <option value="archive">Archive</option>
+      <option value="remediated">Remediated</option>
+    </select>
+  </div>
+  
   <!-- Top right button container -->
   <div class="top-right-buttons">
     <!-- Add Point Button -->
@@ -240,60 +267,124 @@
             <path fill="#f9f9f9" d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
           </svg>
         `;
-        
       }
     });
-  // Add an Export CSV button to the top-right buttons container
-const exportButton = document.createElement('button');
-exportButton.id = 'btn-export';
-exportButton.className = 'small-button';
-exportButton.title = 'Export CSV';
-exportButton.innerHTML = `
-  <svg viewBox="0 0 24 24" width="20" height="20">
-    <path fill="#f9f9f9" d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h4.66v-4h3.84L12 2z"/>
-  </svg>
-`;
-document.querySelector('.top-right-buttons').appendChild(exportButton);
-
-// Export function to generate CSV and trigger download
-function exportToCSV() {
-  // Updated header includes a Date column
-  let csvContent = 'Point ID,Status,Longitude,Latitude,Notes,Date\n';
-  
-  customPointsData.features.forEach(feature => {
-    const id = feature.properties.id;
-    const coords = feature.geometry.coordinates;
-    // Retrieve dynamic state for each feature
-    const state = map.getFeatureState({ source: 'custom-points', id: id });
-    let status = 'None';
-    if (state.archived) {
-      status = 'Archived';
-    } else if (state.watched) {
-      status = 'Watched';
-    } else if (state.remediated) {
-      status = 'Remediated';
+    
+    /********** Export CSV Button and Functionality **********/
+    const exportButton = document.createElement('button');
+    exportButton.id = 'btn-export';
+    exportButton.className = 'small-button';
+    exportButton.title = 'Export CSV';
+    exportButton.innerHTML = `
+      <svg viewBox="0 0 24 24" width="20" height="20">
+        <path fill="#f9f9f9" d="M5 20h14v-2H5v2zm7-18L5.33 9h3.84v4h4.66v-4h3.84L12 2z"/>
+      </svg>
+    `;
+    document.querySelector('.top-right-buttons').appendChild(exportButton);
+    
+    function exportToCSV() {
+      // Updated header includes a Date column
+      let csvContent = 'Point ID,Status,Longitude,Latitude,Notes,Date\n';
+      
+      customPointsData.features.forEach(feature => {
+        const id = feature.properties.id;
+        const coords = feature.geometry.coordinates;
+        // Retrieve dynamic state for each feature
+        const state = map.getFeatureState({ source: 'custom-points', id: id });
+        let status = 'None';
+        if (state.archived) {
+          status = 'Archived';
+        } else if (state.watched) {
+          status = 'Watched';
+        } else if (state.remediated) {
+          status = 'Remediated';
+        }
+        const notes = state.notes || '';
+        // Get the current date in ISO format
+        const now = new Date().toISOString();
+        // Build CSV row with separate Longitude, Latitude, and Date columns
+        csvContent += `${id},"${status}",${coords[0]},${coords[1]},"${notes}","${now}"\n`;
+      });
+      
+      // Create a Blob and trigger a download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'points_export.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
-    const notes = state.notes || '';
-    // Get the current date in ISO format
-    const now = new Date().toISOString();
-    // Build CSV row with separate Longitude, Latitude, and Date columns
-    csvContent += `${id},"${status}",${coords[0]},${coords[1]},"${notes}","${now}"\n`;
-  });
-  
-  // Create a Blob and trigger a download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'points_export.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-// Attach event listener to the export button
-exportButton.addEventListener('click', exportToCSV);
-  
+    
+    exportButton.addEventListener('click', exportToCSV);
+    
+    /********** Reset Points Button and Functionality **********/
+    // Create a Reset Points button
+    const resetButton = document.createElement('button');
+    resetButton.id = 'btn-reset';
+    resetButton.className = 'small-button';
+    resetButton.title = 'Reset Points';
+    resetButton.innerHTML = `
+      <svg viewBox="0 0 24 24" width="20" height="20">
+        <path fill="#f9f9f9" d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+      </svg>
+    `;
+    document.querySelector('.top-right-buttons').appendChild(resetButton);
+    
+    // Reset feature states for all points when the button is clicked
+    resetButton.addEventListener('click', () => {
+      customPointsData.features.forEach(feature => {
+        const id = feature.properties.id;
+        map.setFeatureState(
+          { source: 'custom-points', id: id },
+          { archived: false, watched: false, remediated: false, pulse: 6, notes: "" }
+        );
+      });
+      showToast("All points reset to default");
+    });
+    
+    /********** Mark All Dropdown Functionality **********/
+    // Listen for changes on the "Mark all" dropdown
+    document.getElementById('mark-all-select').addEventListener('change', function() {
+      const status = this.value;
+      if (!status) return; // if no valid selection, do nothing
+      
+      // Iterate over every feature and update its state
+      customPointsData.features.forEach(feature => {
+        const id = feature.properties.id;
+        if (status === 'watch') {
+          map.setFeatureState({ source: 'custom-points', id: id }, {
+            archived: false,
+            watched: true,
+            remediated: false,
+            pulse: 6,
+            notes: ""
+          });
+        } else if (status === 'archive') {
+          map.setFeatureState({ source: 'custom-points', id: id }, {
+            archived: true,
+            watched: false,
+            remediated: false,
+            pulse: 6,
+            notes: ""
+          });
+        } else if (status === 'remediated') {
+          map.setFeatureState({ source: 'custom-points', id: id }, {
+            archived: false,
+            watched: false,
+            remediated: true,
+            pulse: 6,
+            notes: ""
+          });
+        }
+      });
+      
+      showToast(`All points marked as ${status}`);
+      // Reset the dropdown back to its default prompt
+      this.value = "";
+    });
+    
     spinGlobe();
     
     /********** Load GeoJSON Data & Add Layer **********/
@@ -329,11 +420,10 @@ exportButton.addEventListener('click', exportToCSV);
             0.3,
             1
           ],
-          // Outline for remediated and watched points
           'circle-stroke-color': [
             'case',
-            ['boolean', ['feature-state', 'remediated'], false], '#00FF00',  // green border for remediated points
-            ['boolean', ['feature-state', 'watched'], false], '#FFFFFF',       // white border for watched points
+            ['boolean', ['feature-state', 'remediated'], false], '#00FF00',
+            ['boolean', ['feature-state', 'watched'], false], '#FFFFFF',
             'transparent'
           ],
           'circle-stroke-width': [
@@ -370,19 +460,22 @@ exportButton.addEventListener('click', exportToCSV);
       
       /********** Interactivity for Existing Points **********/
       map.on('click', 'points-layer', (e) => {
+        // If in Add Point Mode, ignore clicks on existing points
         if (addPointMode) return;
-        
-        const coordinates = e.features[0].geometry.coordinates.slice();
-        const id = e.features[0].properties.id;
-        const priority = e.features[0].properties.priority;
-        
+      
+        const feature = e.features[0];
+        const id = feature.properties.id;
+        const priority = feature.properties.priority;
+        const coordinates = feature.geometry.coordinates.slice();
+      
         // Retrieve current feature state for pre-population
         const featureState = map.getFeatureState({ source: 'custom-points', id: id });
         const isWatched = featureState.watched || false;
         const isArchived = featureState.archived || false;
         const isRemediated = featureState.remediated || false;
         const notesValue = featureState.notes || '';
-        
+      
+        // Build the popup content without a delete button
         const popupContent = document.createElement('div');
         popupContent.innerHTML = `
           <h3>Point ID: ${id}</h3>
@@ -399,25 +492,19 @@ exportButton.addEventListener('click', exportToCSV);
             <br>
             <label for="notes-${id}">Notes:</label>
             <br>
-            <textarea id="notes-${id}" name="notes-${id}" rows="3" cols="30" placeholder="Enter your notes here...">${notesValue}</textarea>
-            <br>
-            <label for="photoUpload-${id}" style="cursor: pointer; display: inline-flex; align-items: center; margin-top: 5px;">
-              <svg viewBox="0 0 24 24" width="20" height="20">
-                <path fill="#f9f9f9" d="M12 2C8.13 2 5 5.13 5 9c0 3.87 3.13 7 7 7s7-3.13 7-7c0-3.87-3.13-7-7-7zm0 12c-2.76 0-5-2.24-5-5 0-2.76 2.24-5 5-5 2.76 0 5 2.24 5 5 0 2.76-2.24 5-5 5zm-1-9h2v4h3l-4 4-4-4h3z"/>
-              </svg>
-              <span style="font-size: 12px; margin-left: 3px;">Upload Photo</span>
-            </label>
-            <input type="file" id="photoUpload-${id}" style="display: none;" accept="image/*">
+            <textarea id="notes-${id}" rows="3" cols="30">${notesValue}</textarea>
             <br>
             <button type="button" id="submitBtn-${id}">Submit</button>
           </form>
         `;
-        
+      
+        // Create and add the popup to the map
         const popup = new mapboxgl.Popup()
           .setLngLat(coordinates)
           .setDOMContent(popupContent)
           .addTo(map);
-        
+      
+        // Handle Submit
         const submitButton = popupContent.querySelector(`#submitBtn-${id}`);
         submitButton.addEventListener('click', () => {
           const selectedRadio = popupContent.querySelector(`input[name="action-${id}"]:checked`);
@@ -426,9 +513,8 @@ exportButton.addEventListener('click', exportToCSV);
             return;
           }
           const action = selectedRadio.value;
-          // Retrieve notes from the textarea
           const notes = popupContent.querySelector(`#notes-${id}`).value;
-          
+      
           if (action === "archive") {
             map.setFeatureState(
               { source: 'custom-points', id: id },
@@ -456,18 +542,16 @@ exportButton.addEventListener('click', exportToCSV);
               { source: 'custom-points', id: id },
               { archived: false, watched: false, remediated: true, pulse: 6, notes: notes }
             );
-          }
-          
+          } 
           popupContent.classList.add('fade-out');
           setTimeout(() => {
             popup.remove();
           }, 500);
-          showToast("AOI added to RFM database");
+          showToast("Point updated");
         });
       });
       
       /********** Tooltip Functionality for Hovering Points **********/
-      // Create a tooltip element and add it to the document body
       const tooltip = document.createElement('div');
       tooltip.style.position = 'absolute';
       tooltip.style.padding = '5px 10px';
