@@ -139,6 +139,12 @@
         <path d="M21 16.95V7c0-.55-.45-1-1-1h-4.18c-.45 0-.67.54-.35.85l1.83 1.83c.2.2.2.51 0 .71l-1.24 1.24-2.12-2.12L12 9.83l.44 1.33-2.12 2.12-1.24-1.24c-.2-.2-.51-.2-.71 0L7 12.54c-.31.31-.85.09-.85-.35V7c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v10.95c0 .55.45 1 1 1h18c.55 0 1-.45 1-1z"/>
       </svg>
     </button>
+    <!-- Dashboard Button -->
+    <button id="btn-dashboard" class="small-button" title="Open Dashboard">
+      <svg viewBox="0 0 24 24" width="20" height="20">
+        <path fill="#f9f9f9" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8v-10h-8v10zm0-18v6h8V3h-8z"/>
+      </svg>
+    </button>
   </div>
 
   <script>
@@ -181,7 +187,7 @@
       container: 'map',
       style: 'mapbox://styles/mapbox/satellite-v9',
       projection: 'globe',
-      zoom: 5,
+      zoom: 4,
       center: [173.942053519644503, -41.399980118741027]
     });
     
@@ -617,6 +623,11 @@
         map.getCanvas().style.cursor = '';
         tooltip.style.display = 'none';
       });
+    });
+
+    /********** Dashboard Button Event Listener **********/
+    document.getElementById('btn-dashboard').addEventListener('click', () => {
+      window.open('rainfullniwa_data.html', '_blank');
     });
   </script>
 </body>
